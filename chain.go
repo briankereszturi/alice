@@ -1,14 +1,14 @@
 // Package alice provides a convenient way to chain http handlers.
 package alice
 
-import "net/http"
+import "github.com/julienschmidt/httprouter"
 
 // A constructor for a piece of middleware.
 // Some middleware use this constructor out of the box,
 // so in most cases you can just pass somepackage.New
-type Constructor func(http.Handler) http.Handler
+type Constructor func(httprouter.Handle) httprouter.Handle
 
-// Chain acts as a list of http.Handler constructors.
+// Chain acts as a list of httprouter.Handle constructors.
 // Chain is effectively immutable:
 // once created, it will always hold
 // the same set of constructors in the same order.
@@ -27,7 +27,7 @@ func New(constructors ...Constructor) Chain {
 	return c
 }
 
-// Then chains the middleware and returns the final http.Handler.
+// Then chains the middleware and returns the final httprouter.Handle.
 //     New(m1, m2, m3).Then(h)
 // is equivalent to:
 //     m1(m2(m3(h)))
@@ -43,14 +43,12 @@ func New(constructors ...Constructor) Chain {
 // and thus several instances of the same middleware will be created
 // when a chain is reused in this way.
 // For proper middleware, this should cause no problems.
-//
-// Then() treats nil as http.DefaultServeMux.
-func (c Chain) Then(h http.Handler) http.Handler {
-	var final http.Handler
+func (c Chain) Then(h httprouter.Handle) httprouter.Handle {
+	var final httprouter.Handle
 	if h != nil {
 		final = h
 	} else {
-		final = http.DefaultServeMux
+		panic("Invalid httprouter.Handle!")
 	}
 
 	for i := len(c.constructors) - 1; i >= 0; i-- {
@@ -58,21 +56,6 @@ func (c Chain) Then(h http.Handler) http.Handler {
 	}
 
 	return final
-}
-
-// ThenFunc works identically to Then, but takes
-// a HandlerFunc instead of a Handler.
-//
-// The following two statements are equivalent:
-//     c.Then(http.HandlerFunc(fn))
-//     c.ThenFunc(fn)
-//
-// ThenFunc provides all the guarantees of Then.
-func (c Chain) ThenFunc(fn http.HandlerFunc) http.Handler {
-	if fn == nil {
-		return c.Then(nil)
-	}
-	return c.Then(http.HandlerFunc(fn))
 }
 
 // Append extends a chain, adding the specified constructors
